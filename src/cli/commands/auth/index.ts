@@ -13,6 +13,7 @@ import { AuthFailedError } from '../../../lib/errors/authentication-failed-error
 import { verifyAPI } from './is-authed';
 import { CustomError } from '../../../lib/errors';
 import { getUtmsAsString } from '../../../lib/utm';
+import { CommandResult } from '../types';
 
 export = auth;
 
@@ -117,7 +118,10 @@ async function testAuthComplete(token: string): Promise<{ res; body }> {
   });
 }
 
-async function auth(apiToken: string, via: AuthCliCommands) {
+async function auth(
+  apiToken: string,
+  via: AuthCliCommands,
+): Promise<CommandResult> {
   let promise;
   resetAttempts();
   if (apiToken) {
@@ -134,9 +138,9 @@ async function auth(apiToken: string, via: AuthCliCommands) {
 
     if (res.statusCode === 200 || res.statusCode === 201) {
       snyk.config.set('api', body.api);
-      return (
+      return new CommandResult(
         '\nYour account has been authenticated. Snyk is now ready to ' +
-        'be used.\n'
+          'be used.\n',
       );
     }
     throw errorForFailedAuthAttempt(res, body);

@@ -2,6 +2,7 @@
 import 'source-map-support/register';
 import * as Debug from 'debug';
 import * as pathLib from 'path';
+import { writeFileSync } from 'fs';
 
 // assert supported node runtime version
 import * as runtime from './runtime';
@@ -10,6 +11,7 @@ import * as analytics from '../lib/analytics';
 import * as alerts from '../lib/alerts';
 import * as sln from '../lib/sln';
 import { args as argsLib, Args } from './args';
+import { CommandResult, TestCommandResult } from './commands/types';
 import { copy } from './copy';
 import spinner = require('../lib/spinner');
 import errors = require('../lib/errors/legacy-errors');
@@ -33,12 +35,14 @@ const EXIT_CODES = {
 };
 
 async function runCommand(args: Args) {
-  const result = await args.method(...args.options._);
+  const commandResult: CommandResult = await args.method(...args.options._);
   const res = analytics({
     args: args.options._,
     command: args.command,
     org: args.options.org,
   });
+
+  const result = commandResult.getDisplayResults();
 
   if (result && !args.options.quiet) {
     if (args.options.copy) {
@@ -46,6 +50,18 @@ async function runCommand(args: Args) {
       console.log('Result copied to clipboard');
     } else {
       console.log(result);
+    }
+  }
+
+  // also save the json (in error.json) to file if option is set
+  if (args.command === 'test') {
+    const jsonOutputFile = args.options['json-file-output'];
+    if (jsonOutputFile) {
+      const jsonOutputFileStr = jsonOutputFile as string;
+      saveJsonResultsToFile(
+        stripAnsi((commandResult as TestCommandResult).getJsonResult()),
+        jsonOutputFileStr,
+      );
     }
   }
 
@@ -86,6 +102,15 @@ async function handleError(args, error) {
     }
   }
 
+  // also save the json (in error.json) to file if `--json-file-output` option is set
+  const jsonOutputFile = args.options['json-file-output'];
+  if (jsonOutputFile && error.jsonStringifiedResults) {
+    saveJsonResultsToFile(
+      stripAnsi(error.jsonStringifiedResults),
+      jsonOutputFile,
+    );
+  }
+
   const analyticsError = vulnsFound
     ? {
         stack: error.jsonNoVulns,
@@ -118,6 +143,17 @@ async function handleError(args, error) {
   });
 
   return { res, exitCode };
+}
+
+function saveJsonResultsToFile(
+  stringifiedJson: string,
+  jsonOutputFile: string,
+) {
+  try {
+    writeFileSync(jsonOutputFile, stringifiedJson);
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 function checkRuntime() {

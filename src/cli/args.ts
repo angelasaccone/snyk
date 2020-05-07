@@ -1,4 +1,5 @@
 import * as abbrev from 'abbrev';
+import { CommandResult } from './commands/types';
 
 import debugModule = require('debug');
 
@@ -37,7 +38,7 @@ function dashToCamelCase(dash) {
 // Last item is ArgsOptions, the rest are strings (positional arguments, e.g. paths)
 export type MethodArgs = Array<string | ArgsOptions>;
 
-export type Method = (...args: MethodArgs) => Promise<string>;
+export type Method = (...args: MethodArgs) => Promise<CommandResult>;
 
 export interface Args {
   command: string;
@@ -143,7 +144,7 @@ export function args(rawArgv: string[]): Args {
     argv._.unshift(tmp.shift()!);
   }
 
-  let method: () => Promise<string> = cli[command];
+  let method: () => Promise<CommandResult> = cli[command];
 
   if (!method) {
     // if we failed to find a command, then default to an error
